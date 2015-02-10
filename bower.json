@@ -1,0 +1,22 @@
+{
+  "name": "basyt-angular",
+  "version": "0.2.0",
+  "description": "basyt AngularJS Module",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/ytlab/basyt-angular.git"
+  },
+  "author": {
+    "name": "Kamil Sulubulut",
+    "url": "http://github.com/kokeksibir/"
+  },
+  "license": "MIT",
+  "main": "dist/basyt.angular.js",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
