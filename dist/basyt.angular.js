@@ -1,25 +1,46 @@
 angular.module('basyt.angular', ['ui.router'])
     .config(['$httpProvider', function ($httpProvider) {
         $httpProvider.interceptors.push('AuthInterceptor');
+    }])
+    .run(['$rootScope', 'Auth', '$state',function($rootScope, Auth, $state){
+        $rootScope.$on("$stateChangeStart", function(event, next) {
+            if (next.role) {
+                if (!Auth.isAuthenticated(next.role)) {
+                    $state.go('login');
+                    event.preventDefault();
+                }
+                else {
+                    var user = Auth.getUser();
+                    if (next.requireFullAuth && (angular.isUndefined(user) || !user.isFullAuth)) {
+                        $state.go('login');
+                        event.preventDefault();
+                    }
+                }
+            }
+        });
+        $rootScope.$on('user:anonymous', function(){
+            if(angular.isDefined($state.current.role) && ($state.current.role !== 'ANON'))
+                $state.go('login');
+        });
     }]);
 angular.module('basyt.angular')
-    .factory('Auth', ['LocalStore', 'AccessLevels', 'Request', '$q', '$rootScope', function (LocalStore, AccessLevels, Request, $q, $rootScope) {
+    .factory('Auth', ['LocalStore',  'Request', '$q', '$rootScope', function (LocalStore, Request, $q, $rootScope) {
         var User,
             login = function (data) {
                 LocalStore.set('auth_token', data.result.token);
                 delete data.result.token;
                 LocalStore.set('auth_user', JSON.stringify(data.result));
-                $rootScope.$broadcast('user:login', data.result);
                 User = data.result;
                 $rootScope.activeUser = User;
+                $rootScope.$broadcast('user:login', data.result);
                 return User;
             },
             logout = function () {
                 LocalStore.unset('auth_token');
                 LocalStore.unset('auth_user');
-                $rootScope.$broadcast('user:logout');
                 User = null;
                 $rootScope.activeUser = User;
+                $rootScope.$broadcast('user:logout');
             },
             logoutReject = function (err) {
                 var deferred = $q.defer();
@@ -59,10 +80,10 @@ angular.module('basyt.angular')
                     return User;
                 },
                 isLord: function () {
-                    return angular.isDefined(User) && angular.isDefined(User.roles) ? User.roles.indexOf('LORD') > -1 : false;
+                    return angular.isDefined(User) && angular.isDefined(User.roles) ? (User.roles.indexOf('LORD') > -1) : false;
                 },
                 isAdmin: function () {
-                    return angular.isDefined(User) && angular.isDefined(User.roles) ? User.roles.indexOf('ADMIN') > -1 || User.roles.indexOf('LORD') > -1 : false;
+                    return angular.isDefined(User) && angular.isDefined(User.roles) ? (User.roles.indexOf('ADMIN') > -1 || User.roles.indexOf('LORD') > -1) : false;
                 },
                 login: function (credentials, rememberMe) {
                     logout();
@@ -275,10 +296,14 @@ angular.module('basyt.angular')
                 },
                 reload: function () {
                     Request('user_settings:get')
-                        .then(function (data) {
+                        .then(
+                        function (data) {
                             settings = data.result || {};
                             ready = true;
-                            $rootScope.$broadcast('entity:user_settings');
+                            $rootScope.$broadcast('user:registered');
+                        },
+                        function(){
+                            $rootScope.$broadcast('user:anonymous');
                         });
                 }
             };

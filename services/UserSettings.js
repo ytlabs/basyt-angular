@@ -10,10 +10,14 @@ angular.module('basyt.angular')
                 },
                 reload: function () {
                     Request('user_settings:get')
-                        .then(function (data) {
+                        .then(
+                        function (data) {
                             settings = data.result || {};
                             ready = true;
-                            $rootScope.$broadcast('entity:user_settings');
+                            $rootScope.$broadcast('user:registered');
+                        },
+                        function(){
+                            $rootScope.$broadcast('user:anonymous');
                         });
                 }
             };
