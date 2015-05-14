@@ -119,8 +119,8 @@ angular.module('basyt.angular')
             },
             responseError: function (response) {
                 if (response.status === 401 || response.status === 403) {
-                    //LocalStore.unset('auth_token');
-                    //LocalStore.unset('auth_user');
+                    LocalStore.unset('auth_token');
+                    LocalStore.unset('auth_user');
                 }
                 return $q.reject(response);
             }
@@ -275,11 +275,14 @@ angular.module('basyt.angular')
                     connection.on(event, cb);
                 });
             },
-            subscribe: function (event, company_id) {
-                connection.emit('subscribe', {resource: event, company_id: company_id});
+            subscribe: function (event, data) {
+                connection.emit('subscribe', {resource: event, data: data});
             },
-            unsubscribe: function (event, company_id) {
-                connection.emit('unsubscribe', {resource: event, company_id: company_id});
+            unsubscribe: function (event, data) {
+                connection.emit('unsubscribe', {resource: event, data: data});
+            },
+            emit: function (label, data) {
+                connection.emit(label, data);
             },
             connect: connect
         };

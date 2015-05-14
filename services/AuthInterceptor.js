@@ -14,8 +14,8 @@ angular.module('basyt.angular')
             },
             responseError: function (response) {
                 if (response.status === 401 || response.status === 403) {
-                    //LocalStore.unset('auth_token');
-                    //LocalStore.unset('auth_user');
+                    LocalStore.unset('auth_token');
+                    LocalStore.unset('auth_user');
                 }
                 return $q.reject(response);
             }
