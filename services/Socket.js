@@ -21,6 +21,11 @@ angular.module('basyt.angular')
                     connection.on(event, cb);
                 });
             },
+            off: function (event, cb) {
+                if (connection) {
+                    connection.removeAllListeners(event, cb);
+                }
+            },
             subscribe: function (event, data) {
                 connection.emit('subscribe', {resource: event, data: data});
             },
