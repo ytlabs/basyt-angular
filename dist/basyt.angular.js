@@ -2,50 +2,96 @@ angular.module('basyt.angular', ['ui.router'])
     .config(['$httpProvider', function ($httpProvider) {
         $httpProvider.interceptors.push('AuthInterceptor');
     }])
-    .run(['$rootScope', 'Auth', '$state',function($rootScope, Auth, $state){
+    .value('BasytAnonState', 'login')
+    .value('BasytAuthMessages', {
+        'loginRequired': 'Login Required',
+        'loginSuccess': 'Login Successful',
+        'loginFailed': 'Login Failed',
+        'logoutSuccess': 'Logout Successful',
+        'authFailed': 'Authorization Failed'
+    })
+    .run(['$rootScope', 'Auth', '$state','BasytAnonState', '$injector', 'BasytAuthMessages', function($rootScope, Auth, $state, BasytAnonState, $injector, BasytAuthMessages){
+        var $alert = $injector.get('$alert');
         $rootScope.$on("$stateChangeStart", function(event, next) {
             if (next.role) {
                 if (!Auth.isAuthenticated(next.role)) {
-                    $state.go('login');
-                    event.preventDefault();
-                }
-                else {
-                    var user = Auth.getUser();
-                    if (next.requireFullAuth && (angular.isUndefined(user) || !user.isFullAuth)) {
-                        $state.go('login');
-                        event.preventDefault();
+                    if($alert) {
+                        $alert({
+                            title: BasytAuthMessages.loginRequired,
+                            type: 'danger',
+                            duration: 6
+                        })
                     }
+                    $state.go(BasytAnonState);
+                    event.preventDefault();
                 }
             }
         });
         $rootScope.$on('user:anonymous', function(){
             if(angular.isDefined($state.current.role) && ($state.current.role !== 'ANON'))
-                $state.go('login');
+                if($alert) {
+                    $alert({
+                        title: BasytAuthMessages.loginRequired,
+                        type: 'danger',
+                        duration: 6
+                    })
+                }
+                $state.go(BasytAnonState);
         });
     }]);
 angular.module('basyt.angular')
-    .factory('Auth', ['LocalStore',  'Request', '$q', '$rootScope', function (LocalStore, Request, $q, $rootScope) {
-        var User,
+    .factory('Auth', ['BasytLocalStore',  'Request', '$q', '$rootScope', '$injector', 'BasytAuthMessages', function (BasytLocalStore, Request, $q, $rootScope, $injector, BasytAuthMessages) {
+        var AnonUser = {
+                user_state: 'ANON'
+            },
+            User = AnonUser,
+            $alert = $injector.get('$alert'),
             login = function (data) {
-                LocalStore.set('auth_token', data.result.token);
+                BasytLocalStore.set('auth_token', data.result.token);
                 delete data.result.token;
-                LocalStore.set('auth_user', JSON.stringify(data.result));
+                BasytLocalStore.set('auth_user', JSON.stringify(data.result));
                 User = data.result;
                 $rootScope.activeUser = User;
+                $rootScope.activeUser.user_state = Auth.isLord()
+                    ? 'LORD'
+                    : Auth.isAdmin()
+                    ? 'ADMIN'
+                    : 'USER';
+                if($alert) {
+                    $alert({
+                        title: BasytAuthMessages.loginSuccess,
+                        type: 'info',
+                        duration: 3
+                    })
+                }
                 $rootScope.$broadcast('user:login', data.result);
                 return User;
             },
-            logout = function () {
-                LocalStore.unset('auth_token');
-                LocalStore.unset('auth_user');
-                User = null;
+            logout = function (silent) {
+                BasytLocalStore.unset('auth_token');
+                BasytLocalStore.unset('auth_user');
+                User = AnonUser;
                 $rootScope.activeUser = User;
+                if(!silent && $alert) {
+                    $alert({
+                        title: BasytAuthMessages.logoutSuccess,
+                        type: 'info',
+                        duration: 3
+                    })
+                }
                 $rootScope.$broadcast('user:logout');
             },
             logoutReject = function (err) {
                 var deferred = $q.defer();
-                logout();
+                logout(true);
                 deferred.reject(err);
+                if($alert) {
+                    $alert({
+                        title: BasytAuthMessages.loginFailed,
+                        type: 'danger',
+                        duration: 6
+                    })
+                }
                 return deferred.promise;
             },
             Auth = {
@@ -57,17 +103,33 @@ angular.module('basyt.angular')
                     }
                 },
                 isAuthenticated: function (access, remote) {
-                    if (LocalStore.get('auth_token')) {
+                    if (BasytLocalStore.get('auth_token')) {
                         if (remote) Auth.authenticate();
-                        if (!User) {
-                            var stored = LocalStore.get('auth_user');
+                        if (angular.isUndefined(User.id)) {
+                            var stored = BasytLocalStore.get('auth_user');
                             if (stored) {
                                 User = angular.fromJson(stored);
+                                if (angular.isUndefined(User.id))
+                                    return false;
                                 $rootScope.activeUser = User;
+                                if($alert) {
+                                    $alert({
+                                        title: BasytAuthMessages.loginSuccess,
+                                        type: 'info',
+                                        duration: 3
+                                    })
+                                }
+                                $rootScope.activeUser.user_state = Auth.isLord()
+                                    ? 'LORD'
+                                    : Auth.isAdmin()
+                                    ? 'ADMIN'
+                                    : 'USER';
                             }
+                            else
+                                return false;
                         }
                         if (access != 'USER') {
-                            if (!User)
+                            if (angular.isUndefined(User.id))
                                 return false;
                             return angular.isDefined(User.roles) ? (User.roles.indexOf(access) > -1) : false;
                         }
@@ -80,19 +142,19 @@ angular.module('basyt.angular')
                     return User;
                 },
                 isLord: function () {
-                    return angular.isDefined(User) && angular.isDefined(User.roles) ? (User.roles.indexOf('LORD') > -1) : false;
+                    return angular.isDefined(User.roles) ? (User.roles.indexOf('LORD') > -1) : false;
                 },
                 isAdmin: function () {
-                    return angular.isDefined(User) && angular.isDefined(User.roles) ? (User.roles.indexOf('ADMIN') > -1 || User.roles.indexOf('LORD') > -1) : false;
+                    return angular.isDefined(User.roles) ? (User.roles.indexOf('ADMIN') > -1 || User.roles.indexOf('LORD') > -1) : false;
                 },
                 login: function (credentials, rememberMe) {
-                    logout();
+                    logout(true);
                     //if(rememberMe)
                     return Request('user:login', {data: credentials}).then(login, logoutReject);
                 },
                 logout: logout,
                 register: function (formData) {
-                    logout();
+                    logout(true);
                     return Request('user:register', {user: formData}).then(login, logoutReject);
                 },
                 authenticate: function () {
@@ -102,15 +164,13 @@ angular.module('basyt.angular')
             };
         return Auth;
     }]);
-
 angular.module('basyt.angular')
-    .factory('AuthInterceptor', ['$q', '$injector', function ($q, $injector) {
-        var LocalStore = $injector.get('LocalStore');
+    .factory('AuthInterceptor', ['$q', 'BasytLocalStore', '$rootScope', function ($q, BasytLocalStore, $rootScope) {
         return {
             request: function (config) {
                 var token;
-                if (LocalStore.get('auth_token')) {
-                    token = LocalStore.get('auth_token');
+                if (BasytLocalStore.get('auth_token')) {
+                    token = BasytLocalStore.get('auth_token');
                 }
                 if (token) {
                     config.headers.Authorization = 'Bearer ' + token;
@@ -119,8 +179,9 @@ angular.module('basyt.angular')
             },
             responseError: function (response) {
                 if (response.status === 401 || response.status === 403) {
-                    LocalStore.unset('auth_token');
-                    LocalStore.unset('auth_user');
+                    BasytLocalStore.unset('auth_token');
+                    BasytLocalStore.unset('auth_user');
+                    $rootScope.$broadcast('user:anonymous');
                 }
                 return $q.reject(response);
             }
@@ -186,6 +247,20 @@ angular.module('basyt.angular')
         return DataSource;
     }]);
 
+angular.module('basyt.angular')
+    .factory('BasytLocalStore', function() {
+        return {
+            get: function(key) {
+                return localStorage.getItem(key);
+            },
+            set: function(key, val) {
+                return localStorage.setItem(key, val);
+            },
+            unset: function(key) {
+                return localStorage.removeItem(key);
+            }
+        };
+    });
 angular.module('basyt.angular')
     .constant('BasytServer', {
         host: window.API_URL,
@@ -253,7 +328,7 @@ angular.module('basyt.angular')
         };
     }]);
 angular.module('basyt.angular')
-    .factory('Socket', ['BasytServer', 'LocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, LocalStore, $rootScope, $q) {
+    .factory('Socket', ['BasytServer', 'BasytLocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, BasytLocalStore, $rootScope, $q) {
         var connection, future = $q.defer();
         connect = function () {
             connection = io.connect(BasytServer.socket, BasytServer.socketOptions);
@@ -262,7 +337,7 @@ angular.module('basyt.angular')
                     future.resolve(true);
                     $rootScope.$broadcast('basyt:socket:ready');
                 })
-                .emit('authenticate', {token: LocalStore.get('auth_token')}); //send the jwt
+                .emit('authenticate', {token: BasytLocalStore.get('auth_token')}); //send the jwt
 
         };
         connect();

@@ -1,5 +1,5 @@
 angular.module('basyt.angular')
-    .factory('Socket', ['BasytServer', 'LocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, LocalStore, $rootScope, $q) {
+    .factory('Socket', ['BasytServer', 'BasytLocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, BasytLocalStore, $rootScope, $q) {
         var connection, future = $q.defer();
         connect = function () {
             connection = io.connect(BasytServer.socket, BasytServer.socketOptions);
@@ -8,7 +8,7 @@ angular.module('basyt.angular')
                     future.resolve(true);
                     $rootScope.$broadcast('basyt:socket:ready');
                 })
-                .emit('authenticate', {token: LocalStore.get('auth_token')}); //send the jwt
+                .emit('authenticate', {token: BasytLocalStore.get('auth_token')}); //send the jwt
 
         };
         connect();
