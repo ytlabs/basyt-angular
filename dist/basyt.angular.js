@@ -17,7 +17,7 @@ angular.module('basyt.angular', ['ui.router'])
                 if (!Auth.isAuthenticated(next.role)) {
                     if($alert) {
                         $alert({
-                            title: BasytAuthMessages.loginRequired,
+                            title: BasytAuthMessages.authFailed,
                             type: 'danger',
                             duration: 6
                         })
@@ -112,13 +112,6 @@ angular.module('basyt.angular')
                                 if (angular.isUndefined(User.id))
                                     return false;
                                 $rootScope.activeUser = User;
-                                if($alert) {
-                                    $alert({
-                                        title: BasytAuthMessages.loginSuccess,
-                                        type: 'info',
-                                        duration: 3
-                                    })
-                                }
                                 $rootScope.activeUser.user_state = Auth.isLord()
                                     ? 'LORD'
                                     : Auth.isAdmin()
@@ -162,6 +155,7 @@ angular.module('basyt.angular')
                     }, logout);
                 }
             };
+        $rootScope.activeUser = User;
         return Auth;
     }]);
 angular.module('basyt.angular')

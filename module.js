@@ -17,7 +17,7 @@ angular.module('basyt.angular', ['ui.router'])
                 if (!Auth.isAuthenticated(next.role)) {
                     if($alert) {
                         $alert({
-                            title: BasytAuthMessages.loginRequired,
+                            title: BasytAuthMessages.authFailed,
                             type: 'danger',
                             duration: 6
                         })
