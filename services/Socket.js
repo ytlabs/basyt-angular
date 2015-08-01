@@ -1,5 +1,5 @@
-angular.module('basyt.angular')
-    .factory('Socket', ['BasytServer', 'BasytLocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, BasytLocalStore, $rootScope, $q) {
+angular.module('basyt-angular')
+    .factory('BasytSocket', ['$rootScope', '$q', 'BasytServer', 'BasytLocalStore', function ($rootScope, $q, BasytServer, BasytLocalStore) {
         var connection, future = $q.defer();
         connect = function () {
             connection = io.connect(BasytServer.socket, BasytServer.socketOptions);
@@ -11,7 +11,8 @@ angular.module('basyt.angular')
                 .emit('authenticate', {token: BasytLocalStore.get('auth_token')}); //send the jwt
 
         };
-        connect();
+        if(angular.isDefined(io))
+          connect();
         return {
             on: function (event, cb) {
                 if (connection) {
@@ -26,11 +27,11 @@ angular.module('basyt.angular')
                     connection.removeAllListeners(event, cb);
                 }
             },
-            subscribe: function (event, data) {
-                connection.emit('subscribe', {resource: event, data: data});
+            subscribe: function (channel, data) {
+                connection.emit('subscribe', {resource: channel, data: data});
             },
-            unsubscribe: function (event, data) {
-                connection.emit('unsubscribe', {resource: event, data: data});
+            unsubscribe: function (channel, data) {
+                connection.emit('unsubscribe', {resource: channel, data: data});
             },
             emit: function (label, data) {
                 connection.emit(label, data);

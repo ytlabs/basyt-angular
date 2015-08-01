@@ -1,5 +1,5 @@
-angular.module('basyt.angular')
-    .factory('Auth', ['BasytLocalStore',  'Request', '$q', '$rootScope', '$injector', 'BasytAuthMessages', function (BasytLocalStore, Request, $q, $rootScope, $injector, BasytAuthMessages) {
+angular.module('basyt-angular')
+    .factory('BasytAuth', ['BasytLocalStore',  'BasytRequest', '$q', '$rootScope', '$injector', 'BasytAuthMessages', function (BasytLocalStore, BasytRequest, $q, $rootScope, $injector, BasytAuthMessages) {
         var AnonUser = {
                 user_state: 'ANON'
             },
@@ -54,13 +54,6 @@ angular.module('basyt.angular')
                 return deferred.promise;
             },
             Auth = {
-                authorize: function (access) {
-                    if (access) {
-                        return this.isAuthenticated(access);
-                    } else {
-                        return true;
-                    }
-                },
                 isAuthenticated: function (access, remote) {
                     if (BasytLocalStore.get('auth_token')) {
                         if (remote) Auth.authenticate();
@@ -102,15 +95,15 @@ angular.module('basyt.angular')
                 login: function (credentials, rememberMe) {
                     logout(true);
                     //if(rememberMe)
-                    return Request('user:login', {data: credentials}).then(login, logoutReject);
+                    return BasytRequest('user:login', {data: credentials}).then(login, logoutReject);
                 },
                 logout: logout,
                 register: function (formData) {
                     logout(true);
-                    return Request('user:register', {user: formData}).then(login, logoutReject);
+                    return BasytRequest('user:register', {user: formData}).then(login, logoutReject);
                 },
                 authenticate: function () {
-                    return Request('user:authorize').then(function () {
+                    return BasytRequest('user:authenticate').then(function () {
                     }, logout);
                 }
             };

@@ -1,14 +1,14 @@
-angular.module('basyt.angular')
-    .factory('BasytLocalStore', function() {
+angular.module('basyt-angular')
+    .factory('BasytLocalStore', ['$window', function($window) {
         return {
             get: function(key) {
-                return localStorage.getItem(key);
+                return $window.localStorage.getItem(key);
             },
             set: function(key, val) {
-                return localStorage.setItem(key, val);
+                return $window.localStorage.setItem(key, val);
             },
             unset: function(key) {
-                return localStorage.removeItem(key);
+                return $window.localStorage.removeItem(key);
             }
         };
-    });
+    }]);

@@ -1,10 +1,5 @@
-angular.module('basyt.angular')
-    .constant('BasytServer', {
-        host: window.API_URL,
-        socket: window.SOCKET_URL,
-        socketOptions: window.SOCKET_OPTS
-    })
-    .factory('Request', ['$http', 'BasytServer', '$q', '$rootScope', '$urlMatcherFactory', function ($http, BasytServer, $q, $rootScope, $urlMatcherFactory) {
+angular.module('basyt-angular')
+    .factory('BasytRequest', ['$http', '$q', '$rootScope', '$urlMatcherFactory', 'BasytServer', function ($http, $q, $rootScope, $urlMatcherFactory, BasytServer) {
         var endpoints, initialized = false, future,
             deferred = $q.defer();
         $http.get(BasytServer.host)

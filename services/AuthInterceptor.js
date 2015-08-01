@@ -1,5 +1,5 @@
-angular.module('basyt.angular')
-    .factory('AuthInterceptor', ['$q', 'BasytLocalStore', '$rootScope', function ($q, BasytLocalStore, $rootScope) {
+angular.module('basyt-angular')
+    .factory('BasytAuthInterceptor', ['$q', 'BasytLocalStore', '$rootScope', function ($q, BasytLocalStore, $rootScope) {
         return {
             request: function (config) {
                 var token;

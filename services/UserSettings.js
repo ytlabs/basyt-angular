@@ -1,5 +1,5 @@
-angular.module('basyt.angular')
-    .factory('UserSettings', ['Request', '$rootScope', function (Request, $rootScope) {
+angular.module('basyt-angular')
+    .factory('BasytUserSettings', ['$rootScope', 'BasytRequest', 'BasytAuth', function ($rootScope, BasytRequest, BasytAuth) {
         var settings, ready = false,
             service = {
                 isReady: function () {
@@ -9,20 +9,25 @@ angular.module('basyt.angular')
                     return ready ? settings : {};
                 },
                 reload: function () {
-                    Request('user_settings:get')
-                        .then(
-                        function (data) {
+                    BasytRequest('user_settings:get')
+                        .then(function (data) {
                             settings = data.result || {};
                             ready = true;
-                            $rootScope.$broadcast('user:registered');
-                        },
-                        function(){
-                            $rootScope.$broadcast('user:anonymous');
+                            $rootScope.$broadcast('basyt:user_settings:ready');
                         });
                 }
             };
-
-        service.reload();
-
+        if(BasytAuth.isAuthenticated) {
+            service.reload();
+        }
+        $rootScope.$on('user:login', function(){
+          service.reload();
+        });
+        $rootScope.$on('user:logout', function(){
+          ready = false;
+        });
+        $rootScope.$on('user:anonymous', function(){
+          ready = false;
+        });
         return service;
     }]);
