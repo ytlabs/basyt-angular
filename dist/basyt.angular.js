@@ -15,7 +15,7 @@ angular.module('basyt-angular', ['ui.router'])
         socket: window.SOCKET_URL,
         socketOptions: window.SOCKET_OPTS
     })
-    .run(['$rootScope', '$state', '$injector', 'BasytAuth', 'BasytAnonState', 'BasytAuthMessages', function($rootScope, $state, BasytAuth, $injector, BasytAnonState, BasytAuthMessages){
+    .run(['$rootScope', '$state', '$injector', 'BasytAuth', 'BasytAnonState', 'BasytAuthMessages', function($rootScope, $state, $injector, BasytAuth, BasytAnonState, BasytAuthMessages){
         var $alert = $injector.get('$alert');
         $rootScope.$on("$stateChangeStart", function(event, next) {
             if (next.role) {
