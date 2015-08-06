@@ -1,20 +1,25 @@
-angular.module('basyt.angular', ['ui.router'])
+angular.module('basyt-angular', ['ui.router'])
     .config(['$httpProvider', function ($httpProvider) {
-        $httpProvider.interceptors.push('AuthInterceptor');
+        $httpProvider.interceptors.push('BasytAuthInterceptor');
     }])
     .value('BasytAnonState', 'login')
     .value('BasytAuthMessages', {
-        'loginRequired': 'Login Required',
-        'loginSuccess': 'Login Successful',
-        'loginFailed': 'Login Failed',
-        'logoutSuccess': 'Logout Successful',
-        'authFailed': 'Authorization Failed'
+        loginRequired: 'Login Required',
+        loginSuccess: 'Login Successful',
+        loginFailed: 'Login Failed',
+        logoutSuccess: 'Logout Successful',
+        authFailed: 'Authorization Failed'
     })
-    .run(['$rootScope', 'Auth', '$state','BasytAnonState', '$injector', 'BasytAuthMessages', function($rootScope, Auth, $state, BasytAnonState, $injector, BasytAuthMessages){
+    .value('BasytServer', {
+        host: window.API_URL,
+        socket: window.SOCKET_URL,
+        socketOptions: window.SOCKET_OPTS
+    })
+    .run(['$rootScope', '$state', '$injector', 'BasytAuth', 'BasytAnonState', 'BasytAuthMessages', function($rootScope, $state, BasytAuth, $injector, BasytAnonState, BasytAuthMessages){
         var $alert = $injector.get('$alert');
         $rootScope.$on("$stateChangeStart", function(event, next) {
             if (next.role) {
-                if (!Auth.isAuthenticated(next.role)) {
+                if (!BasytAuth.isAuthenticated(next.role)) {
                     if($alert) {
                         $alert({
                             title: BasytAuthMessages.authFailed,
@@ -39,8 +44,9 @@ angular.module('basyt.angular', ['ui.router'])
                 $state.go(BasytAnonState);
         });
     }]);
-angular.module('basyt.angular')
-    .factory('Auth', ['BasytLocalStore',  'Request', '$q', '$rootScope', '$injector', 'BasytAuthMessages', function (BasytLocalStore, Request, $q, $rootScope, $injector, BasytAuthMessages) {
+
+angular.module('basyt-angular')
+    .factory('BasytAuth', ['BasytLocalStore',  'BasytRequest', '$q', '$rootScope', '$injector', 'BasytAuthMessages', function (BasytLocalStore, BasytRequest, $q, $rootScope, $injector, BasytAuthMessages) {
         var AnonUser = {
                 user_state: 'ANON'
             },
@@ -95,13 +101,6 @@ angular.module('basyt.angular')
                 return deferred.promise;
             },
             Auth = {
-                authorize: function (access) {
-                    if (access) {
-                        return this.isAuthenticated(access);
-                    } else {
-                        return true;
-                    }
-                },
                 isAuthenticated: function (access, remote) {
                     if (BasytLocalStore.get('auth_token')) {
                         if (remote) Auth.authenticate();
@@ -143,23 +142,24 @@ angular.module('basyt.angular')
                 login: function (credentials, rememberMe) {
                     logout(true);
                     //if(rememberMe)
-                    return Request('user:login', {data: credentials}).then(login, logoutReject);
+                    return BasytRequest('user:login', {data: credentials}).then(login, logoutReject);
                 },
                 logout: logout,
                 register: function (formData) {
                     logout(true);
-                    return Request('user:register', {user: formData}).then(login, logoutReject);
+                    return BasytRequest('user:register', {user: formData}).then(login, logoutReject);
                 },
                 authenticate: function () {
-                    return Request('user:authorize').then(function () {
+                    return BasytRequest('user:authenticate').then(function () {
                     }, logout);
                 }
             };
         $rootScope.activeUser = User;
         return Auth;
     }]);
-angular.module('basyt.angular')
-    .factory('AuthInterceptor', ['$q', 'BasytLocalStore', '$rootScope', function ($q, BasytLocalStore, $rootScope) {
+
+angular.module('basyt-angular')
+    .factory('BasytAuthInterceptor', ['$q', 'BasytLocalStore', '$rootScope', function ($q, BasytLocalStore, $rootScope) {
         return {
             request: function (config) {
                 var token;
@@ -181,9 +181,10 @@ angular.module('basyt.angular')
             }
         };
     }]);
-angular.module('basyt.angular')
-    .service('DataSource', ['Request', '$rootScope', 'filterFilter', 'Socket', '$q', function (Request, $rootScope, filterFilter, Socket, $q) {
-        var DataSource = function (entityName, map) {
+
+angular.module('basyt-angular')
+    .factory('BasytEntityBridge', ['BasytRequest', 'BasytSocket', '$rootScope', 'filterFilter', '$q', function (BasytRequest, BasytSocket, $rootScope, filterFilter, $q) {
+        var EntityBridge = function (entityName, map) {
             var that = this;
             this.endpoint = entityName + ':list';
             this.socketChannel = 'entity:' + entityName;
@@ -191,13 +192,13 @@ angular.module('basyt.angular')
             this.isLoaded = false;
             this.listeners = [];
             this.value = [];
-            Socket.on('entity:update:' + entityName, function (message) {
+            BasytSocket.on('entity:update:' + entityName, function (message) {
                 that.reload(false);
             });
             this.reload(true);
         };
 
-        DataSource.prototype.bind = function () {
+        EntityBridge.prototype.bind = function () {
             var deferred = $q.defer(), that = this, promise = deferred.promise;
             this.listeners.push(deferred);
             promise.list = this.value;
@@ -216,9 +217,9 @@ angular.module('basyt.angular')
             };
             return promise;
         };
-        DataSource.prototype.reload = function (subscribe) {
+        EntityBridge.prototype.reload = function (subscribe) {
             var that = this;
-            Request(this.endpoint, {params: {deep: true}})
+            BasytRequest(this.endpoint, {params: {deep: true}})
                 .then(function (data) {
                     if (that.map) {
                         angular.forEach(data.result, that.map);
@@ -229,7 +230,7 @@ angular.module('basyt.angular')
                         deferred.notify(that.value);
                     });
                     if (subscribe) {
-                        Socket.subscribe(that.socketChannel);
+                        BasytSocket.subscribe(that.socketChannel);
                     }
                 },
                 function () {
@@ -238,30 +239,26 @@ angular.module('basyt.angular')
                 });
         };
 
-        return DataSource;
+        return EntityBridge;
     }]);
 
-angular.module('basyt.angular')
-    .factory('BasytLocalStore', function() {
+angular.module('basyt-angular')
+    .factory('BasytLocalStore', ['$window', function($window) {
         return {
             get: function(key) {
-                return localStorage.getItem(key);
+                return $window.localStorage.getItem(key);
             },
             set: function(key, val) {
-                return localStorage.setItem(key, val);
+                return $window.localStorage.setItem(key, val);
             },
             unset: function(key) {
-                return localStorage.removeItem(key);
+                return $window.localStorage.removeItem(key);
             }
         };
-    });
-angular.module('basyt.angular')
-    .constant('BasytServer', {
-        host: window.API_URL,
-        socket: window.SOCKET_URL,
-        socketOptions: window.SOCKET_OPTS
-    })
-    .factory('Request', ['$http', 'BasytServer', '$q', '$rootScope', '$urlMatcherFactory', function ($http, BasytServer, $q, $rootScope, $urlMatcherFactory) {
+    }]);
+
+angular.module('basyt-angular')
+    .factory('BasytRequest', ['$http', '$q', '$rootScope', '$urlMatcherFactory', 'BasytServer', function ($http, $q, $rootScope, $urlMatcherFactory, BasytServer) {
         var endpoints, initialized = false, future,
             deferred = $q.defer();
         $http.get(BasytServer.host)
@@ -321,8 +318,9 @@ angular.module('basyt.angular')
             );
         };
     }]);
-angular.module('basyt.angular')
-    .factory('Socket', ['BasytServer', 'BasytLocalStore', '$rootScope', '$q', 'Auth', function (BasytServer, BasytLocalStore, $rootScope, $q) {
+
+angular.module('basyt-angular')
+    .factory('BasytSocket', ['$rootScope', '$q', 'BasytServer', 'BasytLocalStore', function ($rootScope, $q, BasytServer, BasytLocalStore) {
         var connection, future = $q.defer();
         connect = function () {
             connection = io.connect(BasytServer.socket, BasytServer.socketOptions);
@@ -334,7 +332,8 @@ angular.module('basyt.angular')
                 .emit('authenticate', {token: BasytLocalStore.get('auth_token')}); //send the jwt
 
         };
-        connect();
+        if(angular.isDefined(io))
+          connect();
         return {
             on: function (event, cb) {
                 if (connection) {
@@ -349,11 +348,11 @@ angular.module('basyt.angular')
                     connection.removeAllListeners(event, cb);
                 }
             },
-            subscribe: function (event, data) {
-                connection.emit('subscribe', {resource: event, data: data});
+            subscribe: function (channel, data) {
+                connection.emit('subscribe', {resource: channel, data: data});
             },
-            unsubscribe: function (event, data) {
-                connection.emit('unsubscribe', {resource: event, data: data});
+            unsubscribe: function (channel, data) {
+                connection.emit('unsubscribe', {resource: channel, data: data});
             },
             emit: function (label, data) {
                 connection.emit(label, data);
@@ -361,8 +360,9 @@ angular.module('basyt.angular')
             connect: connect
         };
     }]);
-angular.module('basyt.angular')
-    .factory('UserSettings', ['Request', '$rootScope', function (Request, $rootScope) {
+
+angular.module('basyt-angular')
+    .factory('BasytUserSettings', ['$rootScope', 'BasytRequest', 'BasytAuth', function ($rootScope, BasytRequest, BasytAuth) {
         var settings, ready = false,
             service = {
                 isReady: function () {
@@ -372,20 +372,25 @@ angular.module('basyt.angular')
                     return ready ? settings : {};
                 },
                 reload: function () {
-                    Request('user_settings:get')
-                        .then(
-                        function (data) {
+                    BasytRequest('user_settings:get')
+                        .then(function (data) {
                             settings = data.result || {};
                             ready = true;
-                            $rootScope.$broadcast('user:registered');
-                        },
-                        function(){
-                            $rootScope.$broadcast('user:anonymous');
+                            $rootScope.$broadcast('basyt:user_settings:ready');
                         });
                 }
             };
-
-        service.reload();
-
+        if(BasytAuth.isAuthenticated) {
+            service.reload();
+        }
+        $rootScope.$on('user:login', function(){
+          service.reload();
+        });
+        $rootScope.$on('user:logout', function(){
+          ready = false;
+        });
+        $rootScope.$on('user:anonymous', function(){
+          ready = false;
+        });
         return service;
     }]);
