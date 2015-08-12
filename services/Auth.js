@@ -100,7 +100,7 @@ angular.module('basyt-angular')
                 logout: logout,
                 register: function (formData) {
                     logout(true);
-                    return BasytRequest('user:register', {user: formData}).then(login, logoutReject);
+                    return BasytRequest('user:register', {data: formData}).then(login, logoutReject);
                 },
                 authenticate: function () {
                     return BasytRequest('user:authenticate').then(function () {
