@@ -18,9 +18,11 @@ angular.module('basyt-angular')
                 if (connection) {
                     connection.on(event, cb);
                 }
-                future.promise.then(function () {
-                    connection.on(event, cb);
-                });
+                else {
+                    future.promise.then(function () {
+                        connection.on(event, cb);
+                    });
+                }
             },
             off: function (event, cb) {
                 if (connection) {
