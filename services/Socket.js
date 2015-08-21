@@ -8,11 +8,14 @@ angular.module('basyt-angular')
                     future.resolve(true);
                     $rootScope.$broadcast('basyt:socket:ready');
                 })
+                .on('connect_error', function () {
+                    $rootScope.$broadcast('basyt:socket:disconnected');
+                })
                 .emit('authenticate', {token: BasytLocalStore.get('auth_token')}); //send the jwt
 
         };
         if(angular.isDefined(io))
-          connect();
+            connect();
         return {
             on: function (event, cb) {
                 if (connection) {
@@ -37,6 +40,9 @@ angular.module('basyt-angular')
             },
             emit: function (label, data) {
                 connection.emit(label, data);
+            },
+            isConected: function () {
+                return connection.connected;
             },
             connect: connect
         };
